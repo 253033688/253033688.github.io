@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="webpack,splitChunk,">
+  
+
+  
+    <meta name="description" content="webpack splitChunk配置">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>webpack splitChunk配置 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        webpack splitChunk配置
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/splitChunk/">splitChunk</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/webpack/">webpack</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="实验文件依赖关系"><a href="#实验文件依赖关系" class="headerlink" title="实验文件依赖关系"></a>实验文件依赖关系</h1><p>src<br>|- index.js<br>| 　　 import vue,element-ui,axios,router.js,app.vue<br>|- router.js<br>| 　　 import vue,vue-router<br>|- App.vue<br>|- pages<br>　　 |—- layout.vue<br>　　 |—- a.vue<br>　　 　　 import echarts<br>　　 |—- b.vue<br>　　 　　 import b-component.vue<br>　　 　　 import lodash,moment<br>　　 |—- c.vue<br>　　 　　 import axios,echarts</p>
+<p><br></p>
+<h1 id="默认配置"><a href="#默认配置" class="headerlink" title="默认配置"></a>默认配置</h1><p>webpack4 已默认开启 optimization.splitChunks</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">module.exports = &#123;</span><br><span class="line">  //...</span><br><span class="line">  optimization: &#123;</span><br><span class="line">    splitChunks: &#123;</span><br><span class="line">      chunks: &apos;async&apos;,</span><br><span class="line">      minSize: 30000,</span><br><span class="line">      maxSize: 0,</span><br><span class="line">      minChunks: 1,</span><br><span class="line">      maxAsyncRequests: 5,</span><br><span class="line">      maxInitialRequests: 3,</span><br><span class="line">      automaticNameDelimiter: &apos;~&apos;,</span><br><span class="line">      name: true,</span><br><span class="line">      cacheGroups: &#123;</span><br><span class="line">        vendors: &#123;</span><br><span class="line">          test: /[\\/]node_modules[\\/]/,</span><br><span class="line">          priority: -10</span><br><span class="line">        &#125;,</span><br><span class="line">        default: &#123;</span><br><span class="line">          minChunks: 2,</span><br><span class="line">          priority: -20,</span><br><span class="line">          reuseExistingChunk: true</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><strong> 打包结果 </strong></p>
+<p><img src="treemap-default.png" alt="avatar"></p>
+<p><strong> 结论 </strong></p>
+<ul>
+<li>所有 node_modules 中的包都从 vue 文件 中分离出来，如果一个包被多个异步 page 引用，会进一步分离出来，剩下的仍然不会和 vue 合并。</li>
+<li>一个 vue 引入另外 1 个 vue 文件，或者，js 文件（如 main.js）引入另外非 node_modules 的 js 文件，均会合并为 1 个包。</li>
+</ul>
+<p><br></p>
+<h1 id="optimization-splitChunks-chunks-值的区别"><a href="#optimization-splitChunks-chunks-值的区别" class="headerlink" title="optimization.splitChunks.chunks 值的区别"></a>optimization.splitChunks.chunks 值的区别</h1><ul>
+<li><p>initial:</p>
+<p>首次加载的页面和 node_modules 做了拆分。</p>
+<p>异步 page 不会拆分，即使两个异步组件都引用了同一个 node_modules 中的包也不会拆分（如果首次加载页面和异步 page 共用了 npm 包，也不会拆分），会导致重复打包。</p>
+</li>
+<li><p>async</p>
+<p>见默认配置。</p>
+</li>
+<li><p>all</p>
+<p>无论是首页还是异步加载页面，都会进行拆分。</p>
+</li>
+</ul>
+<p><br></p>
+<h1 id="理想的打包需求"><a href="#理想的打包需求" class="headerlink" title="理想的打包需求"></a>理想的打包需求</h1><p>默认配置中，只有是 node_modules 包，都会从页面中分离出来，即使只被该页面引入，更好的效果应该是和该页面合并，以减少 http 请求数。只需要将 minChunks 从默认值 1 修改为 2 即可。</p>
+<p>经测，如果不修改 splitChunks 直接子属性，而是修改 cacheGroups 中的配置，无法实现上述效果（所有的 node_modules 都做了拆分）。</p>
+<p><br><br><br></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#实验文件依赖关系"><span class="toc-text">实验文件依赖关系</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#默认配置"><span class="toc-text">默认配置</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#optimization-splitChunks-chunks-值的区别"><span class="toc-text">optimization.splitChunks.chunks 值的区别</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#理想的打包需求"><span class="toc-text">理想的打包需求</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/03/18/jQuery源码分析一——核心/" rel="next" title="jQuery源码分析一——核心">
+          jQuery源码分析一——核心
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/05/20/Vue源码分析/" rel="prev" title="Vue源码分析">
+            Vue源码分析
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

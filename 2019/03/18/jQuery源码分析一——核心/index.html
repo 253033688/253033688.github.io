@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="jquery,">
+  
+
+  
+    <meta name="description" content="jQuery源码分析一——核心">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>jQuery源码分析一——核心 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        jQuery源码分析一——核心
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="外层沙箱以及命名空间"><a href="#外层沙箱以及命名空间" class="headerlink" title="外层沙箱以及命名空间\$"></a>外层沙箱以及命名空间\$</h1><p>整个 jQuery 代码包裹在 1 个匿名函数中，只暴露 2 个全局变量到 window 上。</p>
+<p><img src="image001.png" alt="avatar"></p>
+<h1 id="jquery-对象生成"><a href="#jquery-对象生成" class="headerlink" title="jquery 对象生成"></a>jquery 对象生成</h1><p>通常，需要用 new 构造函数获取对象实例，但每次都使用 new 太麻烦，因此在构造函数内部 new，返回返回实例。</p>
+<p><img src="image002.png" alt="avatar"></p>
+<p>问题是，jQuery.fn.init 本身也是 1 个构造函数，那么如何才能使用到 jQuery 上的方法，需要（1）将实例方法全部定义到 jQuery.prototype 上；（2）定义 init.prototype 也为 jQuery.prototype。这样，jQuery.fn.init 生成的实例也能访问到全部方法。</p>
+<p><img src="image003.png" alt="avatar"></p>
+<h1 id="jquery-入口"><a href="#jquery-入口" class="headerlink" title="jquery 入口"></a>jquery 入口</h1><p>jquery 把所有操作都包装在 jquery 函数中，jquery 函数就是统一的且唯一的入口，接受的参数经 jQuery.fn.init 包装成 jquery 对象。jQuery.fn.init 可以根据 12 种入参情况进行处理：</p>
+<ul>
+<li><p>空（没有传参）<br>返回自身。</p>
+</li>
+<li><p>DOM 元素<br><img src="image004.png" alt="avatar"></p>
+</li>
+<li><p>字符串<br>可以细分为 7 种情况，如果是单独标签或 html 代码，会创建对应的 DOM 元素。如果是选择器，会通过复杂正则匹配获取对应的 DOM 元素包装成 jquery 对象。</p>
+</li>
+<li><p>函数<br><img src="image005.png" alt="avatar"></p>
+</li>
+<li><p>jquery 对象<br>复制到当前 jquery 对象返回。</p>
+</li>
+<li><p>其他任意值<br>调用 makeArray 方法作为当前 jquery 对象（类数组）的 1 个元素。<br><img src="image006.png" alt="avatar"></p>
+</li>
+</ul>
+<h1 id="jquery-对象数据结构"><a href="#jquery-对象数据结构" class="headerlink" title="jquery 对象数据结构"></a>jquery 对象数据结构</h1><ul>
+<li><p>在包装 DOM 对象基础上生成的新对象。<br><img src="image007.png" alt="avatar"></p>
+</li>
+<li><p>使用数字索引访问即可得到对应的 DOM。</p>
+</li>
+<li><p>是类数组对象，可使用 slice 转为真正的数组。<br><img src="image008.png" alt="avatar"></p>
+</li>
+</ul>
+<h1 id="插件机制-extend"><a href="#插件机制-extend" class="headerlink" title="插件机制 extend"></a>插件机制 extend</h1><p>注意 extends 是 js 中的关键字，这里末尾没有 s。<br>\$.extend([deep], target, obj1, objN)。<br>如果只有 1 个参数，静态方法时扩展 jQuery 本身，原型方法扩展 jQuery 对象。</p>
+<p><img src="image009.png" alt="avatar"></p>
+<p>浅拷贝和深拷贝区别在于是否递归处理。</p>
+<p><img src="image010.png" alt="avatar"></p>
+<h1 id="回溯机制"><a href="#回溯机制" class="headerlink" title="回溯机制"></a>回溯机制</h1><p>jQuery 内部维护着 1 个 jQuery 对象栈。每个遍历方法都会找到 1 组新元素（1 个 jQuery 对象），然后 jQuery 会把这组元素推入到栈中。每个 jQuery 对象都有 3 个属性：context、selector 和 prevObject，其中的 prevObject 属性就指向这个对象栈中的前一个对象，而通过这个属性可以回溯到最初的 DOM 元素集。</p>
+<p><img src="image011.png" alt="avatar"></p>
+<p>例如，在 not 方法源码中，会将新获取的 DOM 对象传入 pushStack，返回这个 DOM 对象的 jQuery 对象，并将当前 jQuery 对象保存为 prevObject。</p>
+<p><img src="image012.png" alt="avatar"></p>
+<p>pushStack</p>
+<p><img src="image013.png" alt="avatar"></p>
+<p>end</p>
+<p><img src="image014.png" alt="avatar"></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#外层沙箱以及命名空间"><span class="toc-text">外层沙箱以及命名空间\$</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#jquery-对象生成"><span class="toc-text">jquery 对象生成</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#jquery-入口"><span class="toc-text">jquery 入口</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#jquery-对象数据结构"><span class="toc-text">jquery 对象数据结构</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#插件机制-extend"><span class="toc-text">插件机制 extend</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#回溯机制"><span class="toc-text">回溯机制</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/04/18/splitChunks配置比较/" rel="prev" title="webpack splitChunk配置">
+            webpack splitChunk配置
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

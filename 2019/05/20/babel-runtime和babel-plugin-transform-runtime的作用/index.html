@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="babel,">
+  
+
+  
+    <meta name="description" content="@babel/runtime和babel-plugin-transform-runtime的作用">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>@babel/runtime和babel-plugin-transform-runtime的作用 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        @babel/runtime和babel-plugin-transform-runtime的作用
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/babel/">babel</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="实验一"><a href="#实验一" class="headerlink" title="实验一"></a>实验一</h1><p>不配置 presets，只配置@babel/plugin-transform-object-assign，转码为：</p>
+<p><img src="image019.png" alt="avatar"></p>
+<p>通过定义了一个_extends()方法，代替 Object.assign()。也就是把代码定义到了目标文件中。后果就是多个文件重复定义。</p>
+<p><br></p>
+<h1 id="实验二"><a href="#实验二" class="headerlink" title="实验二"></a>实验二</h1><p>不配置 presets，配置@babel/plugin-transform-object-assign、@babel/plugin-transform-runtime，转码为：</p>
+<p><img src="image020.png" alt="avatar"></p>
+<p>即，使用 runtime 中的 helpers，将转码文件作为 1 个单独的文件引入，从而减小打包体积。</p>
+<p>【注】检查上面 2 个包的源码，没有引入 core-js。</p>
+<p><br></p>
+<h1 id="实验三"><a href="#实验三" class="headerlink" title="实验三"></a>实验三</h1><p>不配置 presets，只配置@babel/plugin-transform-runtime，不转码。</p>
+<p><br></p>
+<h1 id="实验四"><a href="#实验四" class="headerlink" title="实验四"></a>实验四</h1><p>配置 presets，检查配置和不配置@babel/plugin-transform-runtime 是否有区别。<br>结论：没有区别，说明@babel/plugin-transform-runtime 并没有起任何作用。</p>
+<p><br></p>
+<h1 id="实验五"><a href="#实验五" class="headerlink" title="实验五"></a>实验五</h1><p>配置 presets，也配置@babel/plugin-transform-object-assign、@babel/plugin-transform-runtime，转码为：<br>结论：和实验二一样，说明插件先于 presets 执行。</p>
+<p><br></p>
+<h1 id="实验六"><a href="#实验六" class="headerlink" title="实验六"></a>实验六</h1><p>配置 presets，增加 generator、import，比较配置和不配置@babel/plugin-transform-runtime 是否有区别。</p>
+<p><br></p>
+<h1 id="结论：有区别："><a href="#结论：有区别：" class="headerlink" title="结论：有区别："></a>结论：有区别：</h1><ul>
+<li><p>区别 1：将_interopRequireDefault 提取到外部作为 1 个文件，可以减小一点点代码。</p>
+</li>
+<li><p>区别 2：generator 函数，既引入了 regenerator-runtime，又引入了@babel/runtime/regenerator，最后使用的还是@babel/runtime/regenerator，regenerator-runtime 没起作用。<br>其他没有区别，包括也实验过其他语法，都没有区别，也就 generator 函数有区别。</p>
+</li>
+</ul>
+<p><br></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><ol>
+<li><p>@babel/plugin-transform-runtime 要起作用，必须是上步转码有_extends 这样将代码注入到转码文件中的情况。@babel/plugin-transform-runtime 的作用是提取注入到转码文件提取出来。</p>
+</li>
+<li><p>安装@babel/plugin-transform-runtime 还需要安装@babel/runtime，但@babel/runtime 内的代码并没有引入 core-js 和 generator，而是使用的 helpers。听说，这个 helpers 是通过命令行也是由 core-js 和 generator 生成的，因此可以保持一致。</p>
+</li>
+<li><p>经查，@babel/preset-env 已经也是使用的代码引入，没有注入代码，只是在引入外部包的时候，会在每个文件内定义 interopRequireDefault。@babel/plugin-transform-runtime 可以提取 interopRequireDefault，但对于 generator 函数又会增加一点代码。所以是否引入@babel/plugin-transform-runtime，需要权衡 import 和 generator、async 的使用。</p>
+</li>
+</ol>
+<p><br></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#实验一"><span class="toc-text">实验一</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实验二"><span class="toc-text">实验二</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实验三"><span class="toc-text">实验三</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实验四"><span class="toc-text">实验四</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实验五"><span class="toc-text">实验五</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实验六"><span class="toc-text">实验六</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#结论：有区别："><span class="toc-text">结论：有区别：</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#总结"><span class="toc-text">总结</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/05/20/webpack配置优化/" rel="next" title="webpack配置优化">
+          webpack配置优化
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

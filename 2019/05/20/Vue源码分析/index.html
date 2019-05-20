@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="vue,源码分析,">
+  
+
+  
+    <meta name="description" content="Vue源码分析">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>Vue源码分析 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        Vue源码分析
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/vue/">vue</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码分析/">源码分析</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h1><h2 id="debug-环境搭建"><a href="#debug-环境搭建" class="headerlink" title="debug 环境搭建"></a>debug 环境搭建</h2><ol>
+<li><p>下载 vue 源码，install，执行 npm run setup。如果是 win 用户，还要执行 npm install rollup-plugin-alias@^1.4.0 -D。</p>
+</li>
+<li><p>修改\build\config.js 文件中 genConfig()函数内部的配置对象 config，设置 sourceMap。</p>
+</li>
+<li><p>运行 npm run dev，启动调试环境。可以使用 vs 的 Debugger for Chrome 插件调试，首先要启用 Debugger for Chrome 插件，配置配置 launch.json 文件，执行调试即可。</p>
+</li>
+</ol>
+<h2 id="入口文件"><a href="#入口文件" class="headerlink" title="入口文件"></a>入口文件</h2><p>从 build 目录下的 config 中可以看到入口文件为 src/platforms/web 下的 entry-*文件。</p>
+<p><br></p>
+<h1 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h1><h2 id="new-Vue（根组件）主要过程"><a href="#new-Vue（根组件）主要过程" class="headerlink" title="new Vue（根组件）主要过程"></a>new Vue（根组件）主要过程</h2><ol>
+<li><p>所有的操作都在 Vue.prototype._init()中执行的。</p>
+</li>
+<li><p>首先初始化 options，将 Vue 默认 option 合并进来，貌似就 directives、filters、inject 三个。</p>
+</li>
+<li><p>初始化 vm 实例其他配置。主要是将父类一些如 listeners 等合并到对应的属性中。其中，initState 方法实现 data、props、methods 的数据响应式初始化。</p>
+</li>
+<li><p>检测配置中是否有 el 项，有则调用\$mount()挂载组件。</p>
+</li>
+</ol>
+<h2 id="非根组件实例化过程"><a href="#非根组件实例化过程" class="headerlink" title="非根组件实例化过程"></a>非根组件实例化过程</h2><p>根据 vnode 创建 dom 树过程是先创建子节点，再创建父节点。如果检测到子 vnode 不是 dom 标签，会先 new 组件的构造函数。<br>组件的构造函数有 options 属性，内保存了组件的实例化选项（就是编程定义组件的对象）。该 options 会和 InternalComponentOptions 合并作为构造函数实例化的参数。<br>之后就如同上面一样使用_init()实例化组件。</p>
+<p><br></p>
+<h1 id="响应式"><a href="#响应式" class="headerlink" title="响应式"></a>响应式</h1><h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>通过 Object.defineProperty()为组件 data 选项的每一数据项进行代理。每一数据项都对应 1 个 Dep。所有依赖该数据项的都被实例化为 1 个个 Watcher，然后添加到 Dep 内。这样，每当 data 数据项改变的时候，会遍历其对应 Dep 内的 Watcher，然后执行 Watcher 中保存的回调函数。</p>
+<h2 id="具体实现步骤"><a href="#具体实现步骤" class="headerlink" title="具体实现步骤"></a>具体实现步骤</h2><ol>
+<li><p>定义数据代理（代理者/订阅者）<br>首先，将组件选项 data 参数添加赋值给实例 vm._data 属性。然后，通过调用 observe()-&gt;new Observer()-&gt;walk()遍历 vm._data 属性中的每一项，调用 defineReactive()方法，通过 Object.defineProperty()实现数据代理。</p>
+</li>
+<li><p>定义 Watcher（观察者/订阅者）<br>Watcher 的构造函数第 2 个参数就是被观察的 data 数据项，cb 就是要执行的回调。</p>
+</li>
+<li><p>收集依赖（依赖收集器）<br>以组件实例\$watch 方法为例，会通过 new Watcher-&gt;get()-&gt;pushTarget(this)，设置 Dep.target=_target，然后执行 this.getter.call(vm,vm)，触发数据 get，进而将 Watcher 保存到 Dep 中。<br>因为定义了 Dep.target，因此会执行数据代理 get 方法内的 dep.depend()。进而调用 Watcher 的 addDep()方法，将 Watcher 实例保存到 Dep 中。</p>
+</li>
+<li><p>数据通知<br>通过 Dep.notify()遍历调用 Dep 保存的 Watcher 实例中回调。</p>
+</li>
+</ol>
+<p><br></p>
+<h1 id="模板编译"><a href="#模板编译" class="headerlink" title="模板编译"></a>模板编译</h1><h2 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h2><p>编译模板为 vnode，进而编译为 dom 并挂载，执行的是实例方法 vm.$mount()。如果组件选项中有el，会自动调用vm.$mount()方法。如果没有，则需要手动调用 vm.\$mount()方法挂载。</p>
+<p>首先，vm.$mount()内部会执行 render()方法，生成 vnode。然后，会检查组件的更新前的 vnode（保存在 vm._vnode 属性上）。如果没有则为首次挂载。因此首次挂载不会 diff 差异，而是直接检查 vnode 类型。如果 vnode 类型为 dom 节点且没有子节点，则将该节点 append 到页面 dom 树中。如果检查 vnode.children 有值，则先创建子节点（循环）。子节点为 dom 节点就挂载到 dom 树上。如果不为 dom 节点，则会先实例化该组件。然后，会调用该组件的\$mount()方法，由此又回到上面的流程，直至找到层级最深的子节点，挂载。</p>
+<p>具体来看，有如下关键过程：</p>
+<ol>
+<li>通过创建 1 个观察者 Watcher，并利用 Watcher 会自动执行一遍传入的回调 updateComponent 进行首次挂载。</li>
+<li>无论是否有之前的 vnode，都是通过 vm.<strong>patch</strong>()首次挂载 dom 和比较 vnode 挂载 dom 的。</li>
+<li>vm.<strong>patch</strong>()方法内，如果 vnode 是 dom 节点类型，则直接调用 createElm()创建节点和子节点并 append 到 dom 树上。<br>或者虽是组件类型，但 oldVnode 和 vnode 不同，也调用的是 createElm()创建节点和子节点并 append 到 dom 树上，并不会对 oldVnode 和 vnode 比较，因为没有意义，不同节点又能复用。<br>和 dom 节点类型不同，createElm()内，对于组件类型的 vnode 会调用 createComponent()创建组件，并执行组件的\$mount()方法，又重复上面的步骤直至创建、挂载完所有的子组件 dom。</li>
+<li>如果 vnode 不是 dom 节点类型，且 oldVnode 和 vnode 相同，那么这个时候才有 diff 两者子节点的意义。此次，调用的是 patchVnode()方法进行比较。<br>patchVnode()方法获取 oldVnode 和 vnode 各自的 children，区分如下情况：oldVnode 没有 children，vnode 有，则为新增子节点，直接插入新节点即可；反之，则为删除子节点。如果都有，则调用 updateChildren 通过 diff 算法比较、操作。</li>
+</ol>
+<h2 id="diff-算法"><a href="#diff-算法" class="headerlink" title="diff 算法"></a>diff 算法</h2><ol>
+<li>使用虚拟 dom 的意义</li>
+</ol>
+<ul>
+<li><p>因组件内的数据变化，只会直接触发该组件自身的 updateComponent 方法，从而保证小范围更新。</p>
+</li>
+<li><p>因尽可能的 dom 复用，有 2 个好处：i.原生 dom 有非常多地属性，创建比较耗费性能，复用就意味着提升性能；ii.因为就地复用可以减少 dom 操作，从而提升性能。</p>
+</li>
+</ul>
+<ol start="2">
+<li>updateChildren 大概过程</li>
+</ol>
+<ul>
+<li><p>迭代调用：patchVnode()方法内，如果满足条件就调用 updateChildren()方法比较 children。如果 children 中用来比较的相同（那种相同），又会调用 patchVnode()方法比较它们的 children。因此，vnode 的比较是逐层比较的。</p>
+</li>
+<li><p>vue 的 virtual dom 比较算法为 snabbdom 算法。通过对新旧两个 children 数组首尾各用一个指针，总共四个指针，在遍历过程中这四个指针向中间靠拢的方式进行。每次比较，oldStartIdx、oldEndIdx 与 newStartIdx、newEndIdx 两两比较。由于指针仅仅对数组进行了一次遍历，因此时间复杂度是 O(n)。</p>
+</li>
+</ul>
+<p><br></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#准备"><span class="toc-text">准备</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#debug-环境搭建"><span class="toc-text">debug 环境搭建</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#入口文件"><span class="toc-text">入口文件</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#源码分析"><span class="toc-text">源码分析</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#new-Vue（根组件）主要过程"><span class="toc-text">new Vue（根组件）主要过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#非根组件实例化过程"><span class="toc-text">非根组件实例化过程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#响应式"><span class="toc-text">响应式</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#具体实现步骤"><span class="toc-text">具体实现步骤</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#模板编译"><span class="toc-text">模板编译</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#流程"><span class="toc-text">流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#diff-算法"><span class="toc-text">diff 算法</span></a></li></ol></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/04/18/splitChunks配置比较/" rel="next" title="webpack splitChunk配置">
+          webpack splitChunk配置
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/05/20/自写一个简单的react-redux/" rel="prev" title="自写一个简单的react-redux">
+            自写一个简单的react-redux
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="webpack,优化,">
+  
+
+  
+    <meta name="description" content="webpack配置优化">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>webpack配置优化 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        webpack配置优化
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/webpack/">webpack</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/优化/">优化</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="代码拆分"><a href="#代码拆分" class="headerlink" title="代码拆分"></a>代码拆分</h1><ol>
+<li><p>使用 splitChunks 拆分 js 公共模块</p>
+<p>只需要将 默认配置中 minChunks 从默认值 1 修改为 2 即可实现将只被多个页面引用的 node_modules 包抽离，其他 node_modules 包和该页面合并。</p>
+</li>
+<li><p>抽离 css<br>分离 CSS 有利于浏览器缓存，而且也不必等待 js 加载完之后再渲染 css，也不必重复编译。不过不适合热更新，因此只适用于 production 环境（貌似设置 hmr 选项也可以用于开发环境）。<br>需要安装 MiniCssExtractPlugin，使用见<a href="https://webpack.js.org/plugins/mini-css-extract-plugin。" target="_blank" rel="noopener">https://webpack.js.org/plugins/mini-css-extract-plugin。</a><br>不会显示在 Treemap 中。</p>
+</li>
+<li><p>抽离 css 公共部分<br>如同 js，如果 css 中有共用引用的 css，也可以抽离出来（对于 import 的样式，默认会打到每个 page 对应的 css 中）。<br>抽离 css 公共部分也是使用 optimization.splitChunks 配置。</p>
+</li>
+</ol>
+<p><br></p>
+<h1 id="持久化缓存"><a href="#持久化缓存" class="headerlink" title="持久化缓存"></a>持久化缓存</h1><h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><ol>
+<li><p>html 文件，不开启缓存，保存在自己的服务器上，关闭服务器的缓存。</p>
+</li>
+<li><p>静态 js、css、图片等文件，开启 cdn 或缓存，需要给每个文件名中添加唯一的 hash。<br>每次发布更新的时候，先将静态资源发布，然后再上传 html 文件，这样既保证了老用户能否正常访问，又能让新用户看到新的页面。</p>
+</li>
+</ol>
+<h2 id="webpack-配置"><a href="#webpack-配置" class="headerlink" title="webpack 配置"></a>webpack 配置</h2><ol>
+<li><p>文件名使用[chunkhash]替换[hash]。<br>Module 和 Chunk：Module 可以理解为每个 import 的资源。Chunk 可以理解为 Module 根据规则拆分、合并后的包。<br>几种 hash 的区别：hash 和每次 build 有关，即使模块文件没有任何变化，每次编译出来的 hash 都是不一样的。chunkhash 是根据每一个模块文件内容及依赖计算所得，文件改动才会改变其 chunkhash。contenthash 主要是为区分 css 文件和 js 文件。如 foo.css 被 foo.js 引用，它们会共用相同的 chunkhash 值。但如果 foo.js 修改了，而 css 文件没有任何改变，由于共用 chunkhash，其 css 文件的 hash 也会随之改变。</p>
+</li>
+<li><p>抽离 manifest<br>manifest 保存了 chunks 之间的映射关系，每次打包都会变化。如果将其放在 app.js 中，app.js 打包出来的文件夹 hash 也会变化，导致缓存失效。webpack4 只需要一句配置。</p>
+</li>
+<li><p>使用 HashedModuleIdsPlugin 避免自增 moduleId<br>由于 webpack 内部维护了 1 个 moduleId 自增列表，当新增、减少一个模块引入，会导致很多模块 id 发生变更，进而导致文件 chunkhash 变化。HashedModuleIdsPlugin 可以固定 moduleId（也是使用 hash）。</p>
+</li>
+</ol>
+<p><br></p>
+<h1 id="动态导入和按需加载"><a href="#动态导入和按需加载" class="headerlink" title="动态导入和按需加载"></a>动态导入和按需加载</h1><p>使用 import()函数导入模块即可实现动态导入。需要配置 babel，添加@babel/plugin-syntax-dynamic-import 插件。</p>
+<p><br></p>
+<h1 id="预加载"><a href="#预加载" class="headerlink" title="预加载"></a>预加载</h1><p>是 HtmlWebpackPlugin 的扩展插件（用的是@vue/preload-webpack-plugin），用于资源文件的预加载。</p>
+<p>prefetch 用于告诉浏览器下一页访问所需要的资源，资源将以较低优先级地获取，主要用途是加速下一页访问速度，而不是当前页面的速度。</p>
+<p>Preload 为当前页面服务，告诉浏览器预先请求当前页需要的资源。可以通过设置 as 属性，设置正确的资源优先级，使得重要的资源不再会被延迟，不再被不重要的资源阻塞。Preload 不阻塞 window 的 onload 事件，除非该资源是被一个阻塞该事件的资源请求的。通常浏览器按照解析顺序加载资源。使用 preload 目的是提前加载较晚发现的资源，如，有些资源是隐藏在 CSS 和 JavaScript 中，等到浏览器发现它们时已经为时已晚。</p>
+<p><br></p>
+<h1 id="压缩代码"><a href="#压缩代码" class="headerlink" title="压缩代码"></a>压缩代码</h1><ol>
+<li><p>js 可以使用 TerserJSPlugin，css 需要使用 OptimizeCSSAssetsPlugin。</p>
+</li>
+<li><p>使用 CompressionWebpackPlugin 压缩为 gizp。</p>
+</li>
+</ol>
+<p><br></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#代码拆分"><span class="toc-text">代码拆分</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#持久化缓存"><span class="toc-text">持久化缓存</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#webpack-配置"><span class="toc-text">webpack 配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#动态导入和按需加载"><span class="toc-text">动态导入和按需加载</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#预加载"><span class="toc-text">预加载</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#压缩代码"><span class="toc-text">压缩代码</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/05/20/自写一个简单的react-redux/" rel="next" title="自写一个简单的react-redux">
+          自写一个简单的react-redux
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/05/20/babel-runtime和babel-plugin-transform-runtime的作用/" rel="prev" title="@babel/runtime和babel-plugin-transform-runtime的作用">
+            @babel/runtime和babel-plugin-transform-runtime的作用
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

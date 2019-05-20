@@ -10,15 +10,15 @@
   <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
   
   
-    <meta name="keywords" content>
+    <meta name="keywords" content="react,redux,">
   
 
   
-    <meta name="description" content="Bill Tao Blog,null">
+    <meta name="description" content="自写一个简单的react-redux">
   
   
   <link rel="icon" type="image/x-icon" href="/logo.png">
-  <title> [ Bill Tao Blog ]null</title>
+  <title>自写一个简单的react-redux [ Bill Tao Blog ]</title>
   
     <!-- stylesheets list from config.yml -->
     
@@ -46,113 +46,90 @@
 
   <div class="container" id="content-outer">
     <div class="inner" id="content-inner">
-      
-<div class="recent-posts">
-  
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        自写一个简单的react-redux
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/react/">react</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/redux/">redux</a></li></ul>
+        </span>
+      </span>
+    </header>
 
-  <article class="recent-post-item">
-    <a class="title" href="/2019/05/20/babel-runtime和babel-plugin-transform-runtime的作用/">
-      <h2>@babel/runtime和babel-plugin-transform-runtime的作用</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/babel/">babel</a></li></ul>
-      
-
-    </div>
-
-    
-    <a class="more" href="/2019/05/20/babel-runtime和babel-plugin-transform-runtime的作用/"> 阅读全文〉</a>
-  </article>
-  
-
-  <article class="recent-post-item">
-    <a class="title" href="/2019/05/20/webpack配置优化/">
-      <h2>webpack配置优化</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/webpack/">webpack</a></li><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/优化/">优化</a></li></ul>
-      
-
-    </div>
-
-    
-    <a class="more" href="/2019/05/20/webpack配置优化/"> 阅读全文〉</a>
-  </article>
-  
-
-  <article class="recent-post-item">
-    <a class="title" href="/2019/05/20/自写一个简单的react-redux/">
-      <h2>自写一个简单的react-redux</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/react/">react</a></li><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/redux/">redux</a></li></ul>
-      
-
-    </div>
-
-    
-    <a class="more" href="/2019/05/20/自写一个简单的react-redux/"> 阅读全文〉</a>
-  </article>
-  
-
-  <article class="recent-post-item">
-    <a class="title" href="/2019/05/20/Vue源码分析/">
-      <h2>Vue源码分析</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/vue/">vue</a></li><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/源码分析/">源码分析</a></li></ul>
-      
+    <div class="post-content">
+      <blockquote>
+<p>本文对应的 github 地址：<a href="https://github.com/253033688/test-react-redux" target="_blank" rel="noopener">https://github.com/253033688/test-react-redux</a></p>
+</blockquote>
+<p><br></p>
+<h1 id="用到的概念"><a href="#用到的概念" class="headerlink" title="用到的概念"></a>用到的概念</h1><ol>
+<li><p>高阶组件<br>高阶组件就是一个函数，传给它一个组件，它返回一个新的组件。</p>
+</li>
+<li><p>纯函数<br>一个函数的返回结果只依赖于它的参数，并且在执行过程里面没有副作用（包括没有 console），我们就把这个函数叫做纯函数。</p>
+</li>
+<li><p>context<br>只要往自己的 context 里面放了某些状态，这个组件之下的所有子组件都直接访问这个状态而不需要通过中间组件的传递。一个组件的 context 只有它的子组件能够访问，它的父组件是不能访问到的。通过 getChildContext 设置，通过 childContextTypes 设置类型检查。</p>
+</li>
+</ol>
+<p><br></p>
+<h1 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h1><ol>
+<li><p>定义 reducer.js，归集所有的 state 和 stateChanger。不用管为什么叫 reducer，可以理解为 stateChanger。它必须是 1 个纯函数，即，里面的任何操作不会影响到之前的 state。</p>
+</li>
+<li><p>定义 createStore 函数，用于创建 getState、dispatch、subscribe 三个方法。这三个方法就是 store。</p>
+</li>
+<li><p>定义 Provider 容器组件，目的是将 store 注入到 context 中，使得可以全局访问。</p>
+</li>
+<li><p>定义高阶组件 connect。</p>
+<ul>
+<li><p>处理三件事：将每个组件可能从 store 获取某些 state 这个工作集中到这里处理，然后通过 props 传入组件；将每个组件可能修改 state 的工作集中到这里；如果修改了 state，需要把 state 及时作为新的 props 传入组件（没有响应式，只能自己操作）。</p>
+</li>
+<li><p>但存在一个问题：并不想把所有的操作都集中到这里，而是想把具体操作，如获取那些 state，如何 dispatch 放在组件模块内。因此，可以使用 mapStateToProps 从 state 中获取对应项，使用 mapDispatchToProps 获取 dispatch，然后 dispatch 具体的 action。然后将这 mapStateToProps、mapDispatchToProps 传入 connect，connect 内调用这两个方法，传入 state 和 dispatch。之后，就可以将新的 state 作为 props 传入组件。</p>
+</li>
+<li><p>还有另外一个问题：如何将上述过程每次 dispatch 之后都执行一遍？需要将上面的操作放到 1 个函数内，将这个函数放到 store 的 listeners 中，然后每次 dispatch 就从 listeners 中取出并执行。</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>把 store 和 context 结合。因为 store 的特点无法随便修改。但如果每个组件都这样处理，会冗余大量代码，因此，把这些代码抽离到 1 个高阶组件 connect 中。目的是将 state 中对应的 state 注入到组件中，并将 dispatch 作为 1 个属性。为了避免在跟组件将 store 保存到 context 中，引入 provide 组件，作用就是这个。</p>
+<p>   <br></p>
 
     </div>
 
-    
-    <a class="more" href="/2019/05/20/Vue源码分析/"> 阅读全文〉</a>
+    <div>全文完。</div>
   </article>
-  
-
-  <article class="recent-post-item">
-    <a class="title" href="/2019/04/18/splitChunks配置比较/">
-      <h2>webpack splitChunk配置</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/splitChunk/">splitChunk</a></li><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/webpack/">webpack</a></li></ul>
-      
-
-    </div>
-
+  <div class="toc-container">
     
-    <a class="more" href="/2019/04/18/splitChunks配置比较/"> 阅读全文〉</a>
-  </article>
-  
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#用到的概念"><span class="toc-text">用到的概念</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a></li></ol>
+  </div>
 
-  <article class="recent-post-item">
-    <a class="title" href="/2019/03/18/jQuery源码分析一——核心/">
-      <h2>jQuery源码分析一——核心</h2>
-    </a>
-    <div class="post-meta">
-      
-      
-      <ul class="index-tag-list"><li class="index-tag-list-item"><a class="index-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
-      
 
-    </div>
-
-    
-    <a class="more" href="/2019/03/18/jQuery源码分析一——核心/"> 阅读全文〉</a>
-  </article>
-  
+  </div>
 </div>
 
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/05/20/Vue源码分析/" rel="next" title="Vue源码分析">
+          Vue源码分析
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/05/20/webpack配置优化/" rel="prev" title="webpack配置优化">
+            webpack配置优化
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
 
 
     </div>
