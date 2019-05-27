@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="jquery,">
+  
+
+  
+    <meta name="description" content="jQuery源码分析————Callbacks">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>jQuery源码分析————Callbacks [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        jQuery源码分析————Callbacks
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h1><p>回调函数列表$.Callbacks(flags)用于管理（添加、触发、移除、锁定等）一系列回调函数。如在事件、动画等情形，某个时间节点会触发多个回调。$.Callbacks 就是把这些将来可能用到的回调保存到 1 个数据结构中。抽象出来如下：</p>
+<p><img src="image050.png" alt="avatar"></p>
+<p>\$.Callbacks(flags)虽然是静态方法，但也是 1 个函数，多个执行不会发生内部冲突。</p>
+<h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p><img src="image051.png" alt="avatar"></p>
+<h1 id="源码"><a href="#源码" class="headerlink" title="源码"></a>源码</h1><p><img src="image052.png" alt="avatar"></p>
+<p>$.Callbacks(flags)接受1个参数options，用于控制触发回调列表行为。可以为：once、memory、unique、stopOnFalse。4个参数可以结合使用，用空格隔开，如$.Callbacks(“once memory unique”)。内部保存到 options 对象中。</p>
+<p><img src="image053.png" alt="avatar"></p>
+<p>参数 once 表示回调列表只能执行 1 次 fire，然后就将回调列表清空。memory 为在 fire 之后 add 时，新 add 的回调会立即执行，参数为上次 fire 的参数。unique 回调去重。stopOnFalse 为当 1 个回调返回 false 时中断 fire。</p>
+<h2 id="基本方法"><a href="#基本方法" class="headerlink" title="基本方法"></a>基本方法</h2><ol>
+<li><p>add<br>可以接受单个函数或者函数的集合（数组或类数组，也可能是多维，最终都会压扁），内部使用 add 这个有名函数实现（和 add 方法不是同 1 个）。</p>
+<p><img src="image054.png" alt="avatar"></p>
+<p>对于 memory 选项，直接添加后触发 fire。</p>
+<p><img src="image055.png" alt="avatar"></p>
+</li>
+<li><p>remove<br>list 中可能有重复的回调，所以里面用 while。arg 只能是 1 个函数（inArray 只能判断单个）。</p>
+<p><img src="image056.png" alt="avatar"></p>
+</li>
+<li><p>empty<br>清空回调列表。</p>
+<p><img src="image057.png" alt="avatar"></p>
+</li>
+<li><p>fire<br>一共涉及 3 个方法，调用关系为：self.fire–&gt;self.fireWith–&gt;fire（注意，每次 fire 都会把 list 中的回调全部触发一遍）。fireWith 方法是以给定的上下文和参数调用所有回调函数，核心功能为：</p>
+<p><img src="image058.png" alt="avatar"></p>
+<p>当回调列表正在 fire 时，又有另外的 fire 情况下，且参数不为 once 时，使用 stack 保存的 fire 参数。</p>
+<p><img src="image059.png" alt="avatar"></p>
+<p><img src="image060.png" alt="avatar"></p>
+<p>fire 方法就是遍历 list，传入参数在执行上下文调用。</p>
+<p><img src="image061.png" alt="avatar"></p>
+<p>如果 stack 中有参数，需要递归调用以全部触发 list。</p>
+<p><img src="image062.png" alt="avatar"></p>
+<p>如果为 once+memory，或 memory+lock，虽然不能通过 fire/fireWith 接口触发，但仍然可以通过 add 直接触发，因此需要将 list 清空，避免触发之前的回调。</p>
+<p><img src="image063.png" alt="avatar"></p>
+</li>
+<li><p>lock<br>等同于 once，如果有 memory 仍然可以通过 add 方法 fire。</p>
+<p><img src="image064.png" alt="avatar"></p>
+</li>
+<li><p>disable<br>禁用，因为连 memory 都设为 undefined，因此，无法再添加、触发。</p>
+<p><img src="image065.png" alt="avatar"></p>
+</li>
+</ol>
+<h2 id="如何实现只触发一次回调队列（option-once）"><a href="#如何实现只触发一次回调队列（option-once）" class="headerlink" title="如何实现只触发一次回调队列（option=once）"></a>如何实现只触发一次回调队列（option=once）</h2><p>即，只能执行 1 次 fire，以后将无法执行 fire。<br>如果 once 为 true，则 stack 将为 false。</p>
+<p><img src="image066.png" alt="avatar"></p>
+<p>fire 代码中，执行完 list 中的回调之后，将调用 disable 方法。</p>
+<p><img src="image067.png" alt="avatar"></p>
+<p>之后再执行 fire，因 list 为 undeined，无法执行，也无法 add/remove 等操作。</p>
+<p><img src="image068.png" alt="avatar"></p>
+<h2 id="如何实现多次触发（option-once-false）"><a href="#如何实现多次触发（option-once-false）" class="headerlink" title="如何实现多次触发（option-once=false）"></a>如何实现多次触发（option-once=false）</h2><pre><code>![avatar](image069.png)
+
+很简单，即，每次 fire 的时候都执行 1 遍 list 中的回调。
+每次 fire，并没有清空 list。
+
+![avatar](image070.png)
+
+执行 fire 通常不需要 stack，直接执行即可。只要当 firing 时才需要。执行下面这段语句时，只要 list 不为空，以及 stack 隐式转换后不为 false 即可。注意，空数组转为 true，这里的 stack 没有特别意义。
+
+![avatar](image071.png)
+
+![avatar](image072.png)
+</code></pre><h2 id="如何立即执行（memory）"><a href="#如何立即执行（memory）" class="headerlink" title="如何立即执行（memory）"></a>如何立即执行（memory）</h2><p>add 中，有：</p>
+<p><img src="image073.png" alt="avatar"></p>
+<p>即，在 add 中调用 fire 执行。<br>而在 fire 中，memory 记录了上次执行的环境和参数。</p>
+<p><img src="image074.png" alt="avatar"></p>
+<h2 id="如何并发执行"><a href="#如何并发执行" class="headerlink" title="如何并发执行"></a>如何并发执行</h2><p>即，可以在执行的过程中 add/remove 等（比如其中某个回调是异步操作），需要考虑的是本质上仍然是某个时刻只在执行 1 个代码。</p>
+<p><img src="image075.png" alt="avatar"></p>
+<p><img src="image076.png" alt="avatar"></p>
+<p><img src="image077.png" alt="avatar"></p>
+<p><img src="image078.png" alt="avatar"></p>
+<p>add 的时候，当处于 firing 时，重新获取 list 的长度。</p>
+<p><img src="image079.png" alt="avatar"></p>
+<p>remove 的时候，当处于 firing 时，考虑 index，是否减去总长度和只在执行的 index 值。</p>
+<p><img src="image080.png" alt="avatar"></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#使用"><span class="toc-text">使用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#源码"><span class="toc-text">源码</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#基本方法"><span class="toc-text">基本方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何实现只触发一次回调队列（option-once）"><span class="toc-text">如何实现只触发一次回调队列（option=once）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何实现多次触发（option-once-false）"><span class="toc-text">如何实现多次触发（option-once=false）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何立即执行（memory）"><span class="toc-text">如何立即执行（memory）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何并发执行"><span class="toc-text">如何并发执行</span></a></li></ol></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/03/18/jQuery源码分析一——核心/" rel="next" title="jQuery源码分析一——核心">
+          jQuery源码分析一——核心
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/03/18/jQuery源码分析————Promise/" rel="prev" title="jQuery源码分析————Promise">
+            jQuery源码分析————Promise
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

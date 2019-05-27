@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="jquery,">
+  
+
+  
+    <meta name="description" content="jQuery源码分析————Promise">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>jQuery源码分析————Promise [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        jQuery源码分析————Promise
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="jQuery-Deferred"><a href="#jQuery-Deferred" class="headerlink" title="jQuery.Deferred"></a>jQuery.Deferred</h1><p>$.Deferred()返回1个deferred对象。该deferred对象就是jQuery的回调函数解决方案。首先，调用$.Deferred()返回 1 个 deferred 对象。在外部通过链式调用使用 done/fail/progress/then 等方法（就是 add 方法，换个名而已）添加对应的处理回调，内部分别保存到不同的回调列表中。与此对应，当异步进行中/结束，可以通过 notify/reject/resolve 方法（本质是 fire 方法，也是换个名而已）触发，从而实现异步。</p>
+<p><img src="image082.png" alt="avatar"></p>
+<p>还有 1 个非常重要的问题，尽管将回调列表中的 add 等方法添加到 promise/deferred 中，但这些方法中的 this 已不再指向回调列表，而是异步对象。</p>
+<h2 id="deferred-对象"><a href="#deferred-对象" class="headerlink" title="deferred 对象"></a>deferred 对象</h2><ol>
+<li><p>定义 tuples 数组，内定义有 3 个回调函数列表，分别管理成功/失败/处理中 3 种状态。之所以定义为如下格式，目的是方便管理相同有共同特性的代码。once+memory 可以保证每个异步完成回调只调用 1 次（memory 为满足有的回调在异步之后 add，异步参数相同），memory 保证 progress 能够立即触发，且每次都触发所有的回调。</p>
+<p><img src="image083.png" alt="avatar"></p>
+<p>4 个元素分别表示动作、动作对应的监听器、监听器管理的回调函数队列、最终状态。</p>
+</li>
+<li><p>通过遍历 tuples 方式生成 deferred 对象的 6 个动作函数 deferred[resolve|reject|notify]和 deferred[resolveWith|rejectWith|notifyWith]。</p>
+<p><img src="image084.png" alt="avatar"></p>
+<p><img src="image085.png" alt="avatar"></p>
+<p>为什么说 deferred[resolve|reject|notify]相当于中的 fire，因为看看源代码两者结果都一样。</p>
+</li>
+<li><p>同样在遍历中，定义 promise[done|fail|progress]方法，并将 promise 所有方法扩展到 deferred 对象上。</p>
+<p><img src="image086.png" alt="avatar"></p>
+<p><img src="image087.png" alt="avatar"></p>
+<p><img src="image088.png" alt="avatar"></p>
+<p>由此可见，deferred 对象也有 done/fail/progress 方法，其实就相当于 add 方法。</p>
+</li>
+</ol>
+<h2 id="如何实现？"><a href="#如何实现？" class="headerlink" title="如何实现？"></a>如何实现？</h2><p>如下，根据定义可知，done/fail/progress 相当于 add 方法。</p>
+<p><img src="image089.png" alt="avatar"></p>
+<p>注意，在遍历定义 deferred 对象的那些 fire 方法时，定义了 3 个不同的 list。因此，上面 3 个方法添加到的是不同的队列。</p>
+<p><img src="image090.png" alt="avatar"></p>
+<p>在 read 中完成后，就可以使用 deferred 对象的 resolve|reject|notify 方法触发各自不同的队列。</p>
+<p><img src="image091.png" alt="avatar"></p>
+<p>同时，还在遍历是添加了如下代码（使用 lock），使得每次只可能触发 1 个队列。</p>
+<p><img src="image092.png" alt="avatar"></p>
+<h2 id="存在的问题"><a href="#存在的问题" class="headerlink" title="存在的问题"></a>存在的问题</h2><p><img src="image093.png" alt="avatar"></p>
+<p>直接返回 deferred 对象暴露了 fire 类型方法，因此需要再定义 1 个 promise 方法，只暴露 done,fail,always 这些个回调函数接口。</p>
+<p><img src="image094.png" alt="avatar"></p>
+<h1 id="promise-对象"><a href="#promise-对象" class="headerlink" title="promise 对象"></a>promise 对象</h1><p>promise 对象是\$.Deferred 内部定义的 1 个对象，除遍历过程中定义的方法，还有定义了其他方法。</p>
+<p><img src="image095.png" alt="avatar"></p>
+<p><img src="image096.png" alt="avatar"></p>
+<p>这里不仅把 promise 对象中的属性给了 deferred，当我们使用 deferred.promise()时，如果没有传参，返回的就是这个 promise。</p>
+<p><img src="image097.png" alt="avatar"></p>
+<h2 id="always-语法糖"><a href="#always-语法糖" class="headerlink" title="always 语法糖"></a>always 语法糖</h2><p><img src="image098.png" alt="avatar"></p>
+<p>即，一次性定义好 done 和 fail 方法。注意，这里的 this 是 promise 对象自身。</p>
+<h2 id="then"><a href="#then" class="headerlink" title="then"></a>then</h2><p>如下，因 done()、fail()和 progress()方法返回的是 promise 对象，也就是不能再有新的 deferred 嵌套。</p>
+<p><img src="image099.png" alt="avatar"></p>
+<ul>
+<li><p>从 1.8 开始，then 不仅仅是 deferred.done(fnDone).fail(fnFail).progress(fnProgress)的快捷方式，而且返回的是 1 个新 deferred 对象的 promise 属性。</p>
+<p><img src="image100.png" alt="avatar"></p>
+<p>向 jQuery.Deferred 传递函数会立即执行，且传入这个函数的参数就是 jQuery.Deferred 内新创建的 deferred 对象。</p>
+<p><img src="image101.png" alt="avatar"></p>
+</li>
+<li><p>执行传入的函数，通过遍历 tuples 方式，add 向 then 传入中的 3 个方法（对应 done、fail 和 progress）。当原先定义的延迟对象触发时就会执行这些 add 新构造的方法。</p>
+</li>
+<li><p>如果用户在这些回调中又使用了自己的 deferred，可以将新创建的 deferred 对应的 fire 作为参数 add 到用户返回的 deferred 中，从而实现。</p>
+<p><img src="image102.png" alt="avatar"></p>
+<p><img src="image103.png" alt="avatar"></p>
+</li>
+</ul>
+<h1 id="when"><a href="#when" class="headerlink" title="\$.when"></a>\$.when</h1><p>用于执行 1 个或多个包裹延迟对象监听函数的回调函数。如果所有任务都成功，内部通过新创建 1 个 deferred，当确定所有用户传入的异步参数都执行成功，触发新创建 deferred，将保存的每个任务的返回值到 1 个数组中，连同这个数组返回成功状态。当一个任务失败的时候，代表整个都失败。</p>
+<p><img src="image104.png" alt="avatar"></p>
+<p><img src="image105.png" alt="avatar"></p>
+<p>remaining 用于维护状态。既然 when 中是异步，那么 resolveValues 中的元素就是异步。</p>
+<p><img src="image106.png" alt="avatar"></p>
+<p><img src="image107.png" alt="avatar"></p>
+<p><img src="image108.png" alt="avatar"></p>
+<p>updateFunc 返回的是 1 个回调，会被 done 执行。</p>
+<p><img src="image109.png" alt="avatar"></p>
+<h1 id="ready"><a href="#ready" class="headerlink" title="ready"></a>ready</h1><p>ready 方法是原型方法，使用如$(document).ready(fn)、$(“#id”).ready(fn)。定义如下：</p>
+<p><img src="image110.png" alt="avatar"></p>
+<p>jQuery.ready.promise()是静态方法，返回延迟对象。</p>
+<p><img src="image111.png" alt="avatar"></p>
+<p><img src="image112.png" alt="avatar"></p>
+<p>改变延迟对象 readyList 状态的是在静态 jQuery.ready 方法中，当考虑各种兼容等情况后，满足条件时，调用 jQuery.ready 方法，执行下面代码。</p>
+<p><img src="image113.png" alt="avatar"></p>
+<p>关于 document.ready，浏览器解析完 HTML 内容、生成 DOM 树后，会触发 DOMContentLoaded 事件。此时页面上只是 DOM 节点就绪了，但是 js、css、图片等还处于待下载状态。之后，浏览器发送请求去下载 js、css、图片。全部下载结束的时候触发 onload 事件。</p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#jQuery-Deferred"><span class="toc-text">jQuery.Deferred</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#deferred-对象"><span class="toc-text">deferred 对象</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何实现？"><span class="toc-text">如何实现？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#存在的问题"><span class="toc-text">存在的问题</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#promise-对象"><span class="toc-text">promise 对象</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#always-语法糖"><span class="toc-text">always 语法糖</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#then"><span class="toc-text">then</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#when"><span class="toc-text">\$.when</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#ready"><span class="toc-text">ready</span></a></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/03/18/jQuery源码分析————Callbacks/" rel="next" title="jQuery源码分析————Callbacks">
+          jQuery源码分析————Callbacks
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/03/18/jQuery源码分析————数据缓存/" rel="prev" title="jQuery源码分析————数据缓存">
+            jQuery源码分析————数据缓存
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

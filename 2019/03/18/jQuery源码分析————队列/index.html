@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="jquery,">
+  
+
+  
+    <meta name="description" content="jQuery源码分析————队列">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>jQuery源码分析————队列 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        jQuery源码分析————队列
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h1><p>队列是一种特殊的线性表，只允许在队头进行删除操作（出队），在队尾进行插入操作（入队）。队列的特点是先进先出，即最先插入的元素最先被删除。与普通队列不同之处为，jQuery.queue 和 jQuery.fn.queue 不仅执行出队操作，返回队头元素，还会自动执行返回的队头元素。</p>
+<p>使用上，jQuery 提供了 2 组队列操作的 API：jQuery.queue/dequeue 和 jQuery.fn.queue/dequeue。$.queue为显示或操作匹配的元素上已经执行的函数列队，类似队列的push操作，内部通过$.data 将方法缓存（必须是 dom 对象才能使用 queue）。$.dequeue为对匹配的元素上执行队列中的下一个函数，每调用1次仅出列1个，因此当回调有N个时，需要调用$.dequeue 方法 N 次元素才全部出列。</p>
+<p><img src="image147.png" alt="avatar"></p>
+<p>\$.dequeue 内部还是生成 next 方法，传递给入列方法（第 2 个参数），因此，可以在 1 个方法中直接调用队列下一个方法。</p>
+<p><img src="image148.png" alt="avatar"></p>
+<p>\$.dequeue 内部还生成 hooks，用于清空该元素对应的队列缓存，还可以停止延迟队列的进一步调用(stop 方法)。</p>
+<h1 id="源码"><a href="#源码" class="headerlink" title="源码"></a>源码</h1><h2 id="queue"><a href="#queue" class="headerlink" title="queue"></a>queue</h2><p><img src="image149.png" alt="avatar"></p>
+<p><img src="image150.png" alt="avatar"></p>
+<p><img src="image151.png" alt="avatar"></p>
+<p><img src="image152.png" alt="avatar"></p>
+<p>可见 queue 中使用的缓存系统，队列类型为 key，值是 1 个数组（jQuery._data 存取数据返回的都是保存的数据，这里保存的数据 data 已转为数组）。</p>
+<h2 id="queueHooks"><a href="#queueHooks" class="headerlink" title="_queueHooks"></a>_queueHooks</h2><p><img src="image153.png" alt="avatar"></p>
+<h2 id="dequeue"><a href="#dequeue" class="headerlink" title="dequeue"></a>dequeue</h2><p><img src="image154.png" alt="avatar"></p>
+<p><img src="image155.png" alt="avatar"></p>
+<p>调用队列中的回调，并给回调传参 next 和 hooks，因此可以使用 next 调用下一个出队操作，还可以暂停 delay 队列（delay 队列有 stop 方法附加到 hooks 上）。</p>
+<p><img src="image156.png" alt="avatar"></p>
+<p>当队列出队完成后，调用 hooks 中的 empty，清空队列缓存。</p>
+<p><img src="image157.png" alt="avatar"></p>
+<h2 id="jQuery-fn-queue"><a href="#jQuery-fn-queue" class="headerlink" title="jQuery.fn.queue"></a>jQuery.fn.queue</h2><p>调用 jQuery.queue 方法入队。</p>
+<p><img src="image158.png" alt="avatar"></p>
+<p>调用 jQuery._queueHooks 创建 1 个 queueHooks 缓存对象（由此可见所有的队列都有这个操作，缓存对象生成后就和这个元素相关，不需要返回值也能获取）。</p>
+<p><img src="image159.png" alt="avatar"></p>
+<p>如果队列顶部不是占位符 inprogress 且 type 是 fx 则调用出队列。</p>
+<p><img src="image160.png" alt="avatar"></p>
+<h2 id="jQuery-fn-dequeue"><a href="#jQuery-fn-dequeue" class="headerlink" title="jQuery.fn.dequeue"></a>jQuery.fn.dequeue</h2><p><img src="image161.png" alt="avatar"></p>
+<h2 id="jQuery-fn-delay"><a href="#jQuery-fn-delay" class="headerlink" title="jQuery.fn.delay"></a>jQuery.fn.delay</h2><p>设置延迟出队，前 1 个队列方法出队执行后，在这里 delay（添加 1 个新队列），然后再执行后面的队列方法。</p>
+<p><img src="image162.png" alt="avatar"></p>
+<p>dequeue 会调用队列的这个回调，传入 next，然后这里间隔后会执行这个 next，从而实现后面的出队。这里设置 hooks.stop 是为了清除延迟，在 dequeue 调用下 1 个队列时，会传入 hooks。</p>
+<p><img src="image163.png" alt="avatar"></p>
+<h2 id="jQuery-fn-clearQueue"><a href="#jQuery-fn-clearQueue" class="headerlink" title="jQuery.fn.clearQueue"></a>jQuery.fn.clearQueue</h2><p>清除队列，使用的方法是置空队列。传入数组，会覆盖队列的原数组。</p>
+<p><img src="image164.png" alt="avatar"></p>
+<h2 id="jQuery-fn-promise"><a href="#jQuery-fn-promise" class="headerlink" title="jQuery.fn.promise"></a>jQuery.fn.promise</h2><p>是 jQuery 的原型方法，而不是 deferred 的方法，用于队列执行完成后执行的异步操作。</p>
+<p><img src="image165.png" alt="avatar"></p>
+<p>首先新建 1 个 deferred，然后遍历匹配集，增加 count（等于匹配集个数），添加 resolve 函数到每个匹配集元素的回调集。因为所有队列最后都会执行 queueHooks，因此会最后执行 resolveWith 方法。</p>
+<p><img src="image166.png" alt="avatar"></p>
+<p><img src="image167.png" alt="avatar"></p>
+<p><img src="image168.png" alt="avatar"></p>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#源码"><span class="toc-text">源码</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#queue"><span class="toc-text">queue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#queueHooks"><span class="toc-text">_queueHooks</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#dequeue"><span class="toc-text">dequeue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-fn-queue"><span class="toc-text">jQuery.fn.queue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-fn-dequeue"><span class="toc-text">jQuery.fn.dequeue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-fn-delay"><span class="toc-text">jQuery.fn.delay</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-fn-clearQueue"><span class="toc-text">jQuery.fn.clearQueue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-fn-promise"><span class="toc-text">jQuery.fn.promise</span></a></li></ol></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/03/18/jQuery源码分析————数据缓存/" rel="next" title="jQuery源码分析————数据缓存">
+          jQuery源码分析————数据缓存
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/04/18/splitChunks配置比较/" rel="prev" title="webpack splitChunk配置">
+            webpack splitChunk配置
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>

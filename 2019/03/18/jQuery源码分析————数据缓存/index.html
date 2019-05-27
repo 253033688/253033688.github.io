@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="">
+
+
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#202020">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+  
+  
+    <meta name="keywords" content="jquery,">
+  
+
+  
+    <meta name="description" content="jQuery源码分析————数据缓存">
+  
+  
+  <link rel="icon" type="image/x-icon" href="/logo.png">
+  <title>jQuery源码分析————数据缓存 [ Bill Tao Blog ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css">
+    
+      <link rel="stylesheet" href="/css/xoxo.css">
+    
+  
+</head>
+
+
+<body>
+  <div class="nav-container">
+    <nav class="home-menu pure-menu pure-menu-horizontal">
+  <a class="pure-menu-heading" href="/">
+    <!-- <img class="avatar" src="http://yoursite.com/images/logo.png"> -->
+    <span class="title">Bill Tao Blog</span>
+  </a>
+
+  <ul class="pure-menu-list clearfix"> </ul>
+
+</nav>
+
+  </div>
+
+  <div class="container" id="content-outer">
+    <div class="inner" id="content-inner">
+      <div class="post-container">
+  <article class="post" id="post">
+    <header class="post-header text-center">
+      <h1 class="title">
+        jQuery源码分析————数据缓存
+      </h1>
+      <span class="post-meta">
+        <span class="post-tags">
+          <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/jquery/">jquery</a></li></ul>
+        </span>
+      </span>
+    </header>
+
+    <div class="post-content">
+      <h1 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h1><h2 id="内存泄漏"><a href="#内存泄漏" class="headerlink" title="内存泄漏"></a>内存泄漏</h2><p>内存泄露是指一块被分配的内存既不能使用，又不能回收，直到浏览器进程结束（浏览器采用自动垃圾回收方法管理内存）。内存泄露的几种情况：</p>
+<ul>
+<li><p>循环引用。</p>
+</li>
+<li><p>Javascript 闭包。</p>
+</li>
+<li><p>DOM 插入顺序。</p>
+</li>
+</ul>
+<p><img src="image114.png" alt="avatar"></p>
+<p><img src="image115.png" alt="avatar"></p>
+<p>循环引用通常没有什么问题。但当参与循环引用的对象中有 DOM 对象或者 ActiveX 对象时，循环引用将导致内存泄露。即，从 DOM 中 remove 元素，但是依然有变量或者对象引用了该 DOM 对象，内存中无法删除。当直接扩展 DOM 元素的属性或添加过多数据就很容易引起内存泄漏。因此，需要使用一种低耦合的方式让 DOM 和缓存数据能够联系起来。</p>
+<h2 id="jQuery-缓存系统"><a href="#jQuery-缓存系统" class="headerlink" title="jQuery 缓存系统"></a>jQuery 缓存系统</h2><p>jQuery 缓存系统是把所有数据保存在全局缓存对象\$.cache 中。jQuery 动画、事件等都是有这个缓存系统，以避免内存泄漏风险。</p>
+<p>每个使用缓存系统的 DOM 对象会分配一个随机数 jQuery.expando 作为属性，属性值为自增 UUID，通过这个 UUID 关联文档对象和全局缓存对象\$.cache。</p>
+<p>给 DOM 对象添加属性（非 attr 属性）是看不见的。</p>
+<p><img src="image116.png" alt="avatar"></p>
+<p>jQuery 缓存系统任何情况下都没有将数据保存到 DOM 对象的属性中，包括 dataAttr 方法，只是在缓存系统中找不到数据时，从 data-属性中读取数据，从来没有保存数据到。</p>
+<h1 id="源码"><a href="#源码" class="headerlink" title="源码"></a>源码</h1><h2 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h2><ul>
+<li>首先定义内部方法。</li>
+</ul>
+<p><img src="image117.png" alt="avatar"></p>
+<ul>
+<li>然后扩展静态方法。</li>
+</ul>
+<p><img src="image118.png" alt="avatar"></p>
+<ul>
+<li>然后定义原型方法。</li>
+</ul>
+<p><img src="image119.png" alt="avatar"></p>
+<h2 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h2><h3 id="保存数据"><a href="#保存数据" class="headerlink" title="保存数据"></a>保存数据</h3><ol>
+<li><p>静态方法 data/_data<br>定义全局缓存对象 cache。</p>
+<p><img src="image120.png" alt="avatar"></p>
+<p>其中，cache 中的数据结构为：</p>
+<p><img src="image121.png" alt="avatar"></p>
+<p>即，（1）cache 对象的 key 为整型值，从 1（guid，会和 dom 属性对应）开始递增。（2）jquery 内部数据直接是每个 key 指向的对象中的 key-value，而用户自定义数据则全部保存在单独的 1 个 data 对象中。</p>
+<p>定义静态方法 data/_data，两者都是调用内部方法 internalData，区别在于_data 用于添加或读取一个仅供内部使用的数据。</p>
+<p><img src="image122.png" alt="avatar"></p>
+<p><img src="image123.png" alt="avatar"></p>
+<p>如果 elem 是 node，必须是 Element（1）或 Document（9），并且不能是 applet、embed 和 object 元素（因为他们不支持不支持设置 expando 属性）。</p>
+<p><img src="image124.png" alt="avatar"></p>
+<p><img src="image125.png" alt="avatar"></p>
+<p>生成随机数字 jQuery.expando。</p>
+<p><img src="image126.png" alt="avatar"></p>
+<p>如果是 DOM 元素，保存在 cache 中。如果是 JS 对象，则直接将数据保存在这个对象上。</p>
+<p><img src="image127.png" alt="avatar"></p>
+<p>生成 id，如果已存在就用之前的，否则新生成 1 个（dom 从 1 自增，js 对象直接用 internalKey）。</p>
+<p><img src="image128.png" alt="avatar"></p>
+<p><img src="image129.png" alt="avatar"></p>
+<p>生成对应的 cache[id]。</p>
+<p><img src="image130.png" alt="avatar"></p>
+<p>保存数据（pvt 代表内部数据）。</p>
+<p><img src="image131.png" alt="avatar"></p>
+<p><img src="image132.png" alt="avatar"></p>
+<p><img src="image133.png" alt="avatar"></p>
+<p>读取数据。</p>
+<p><img src="image134.png" alt="avatar"></p>
+</li>
+<li><p>原型方法 jQuery.fn.data<br>定义 dataAttr，用来解析 elem 元素身上的 html 标签”data-“的值，如果传入的第 3 个参数 data 对象有值的话,则直接返回不进行解析。</p>
+<p><img src="image135.png" alt="avatar"></p>
+<p><img src="image136.png" alt="avatar"></p>
+<p><img src="image137.png" alt="avatar"></p>
+<p><img src="image138.png" alt="avatar"></p>
+<p>如果传给 data 的没有 key，如\$(divElement).data()情况，调用方法 jQuery.data(elem,name,data)获取第一个匹配元素关联的自定义数据缓存对象，并返回整个缓存对象。</p>
+<p><img src="image139.png" alt="avatar"></p>
+<p>如果传给 data 的是 1 个对象，遍历对象，分别获取 key 对应的 value 返回。</p>
+<p><img src="image140.png" alt="avatar"></p>
+<p>如果是保存，调用 jQuery.data 保存。</p>
+<p><img src="image141.png" alt="avatar"></p>
+<p>如果是获取 key，如果是 elem，则先从 Query.data 获取，如果没有数据再从 data-属性中获取。</p>
+<p><img src="image142.png" alt="avatar"></p>
+</li>
+<li><p>移除数据</p>
+<p><img src="image143.png" alt="avatar"></p>
+<p><img src="image144.png" alt="avatar"></p>
+<p><img src="image145.png" alt="avatar"></p>
+<p><img src="image146.png" alt="avatar"></p>
+</li>
+</ol>
+
+    </div>
+
+    <div>全文完。</div>
+  </article>
+  <div class="toc-container">
+    
+  <div id="toc" class="toc-article">
+    <strong class="toc-title">目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#原理"><span class="toc-text">原理</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#内存泄漏"><span class="toc-text">内存泄漏</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jQuery-缓存系统"><span class="toc-text">jQuery 缓存系统</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#源码"><span class="toc-text">源码</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#结构"><span class="toc-text">结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#实现"><span class="toc-text">实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#保存数据"><span class="toc-text">保存数据</span></a></li></ol></li></ol></li></ol>
+  </div>
+
+
+  </div>
+</div>
+
+  
+    <div class="post-nav">
+      <div class="post-nav-item post-nav-next">
+        
+          <span>〈 </span>
+          <a href="/2019/03/18/jQuery源码分析————Promise/" rel="next" title="jQuery源码分析————Promise">
+          jQuery源码分析————Promise
+          </a>
+        
+      </div>
+  
+      <div class="post-nav-item post-nav-prev">
+          
+          <a href="/2019/03/18/jQuery源码分析————队列/" rel="prev" title="jQuery源码分析————队列">
+            jQuery源码分析————队列
+          </a>
+          <span>〉</span>
+        
+      </div>
+    </div>
+  
+
+
+    </div>
+
+    
+
+  </div>
+  <!-- <footer class="footer text-center">
+    <div id="bottom-inner">
+        <a class="bottom-item" href>首页</a> |
+        <a class="bottom-item" href target="_blank">主站</a> |
+        <a class="bottom-item" href target="_blank">GitHub</a> |
+        <a class="bottom-item" href="https://hexo.io" target="_blank">Powered by hexo</a> |
+        <a class="bottom-item" href="https://github.com/KevinOfNeu/hexo-theme-xoxo" target="_blank">Theme xoxo</a>
+    </div>
+</footer>
+ -->
+  <!-- 
+
+<script>
+  (function(window, document, undefined) {
+
+    var timer = null;
+
+    function returnTop() {
+      cancelAnimationFrame(timer);
+      timer = requestAnimationFrame(function fn() {
+        var oTop = document.body.scrollTop || document.documentElement.scrollTop;
+        if (oTop > 0) {
+          document.body.scrollTop = document.documentElement.scrollTop = oTop - 50;
+          timer = requestAnimationFrame(fn);
+        } else {
+          cancelAnimationFrame(timer);
+        }
+      });
+    }
+
+    var hearts = [];
+    window.requestAnimationFrame = (function() {
+      return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          setTimeout(callback, 1000 / 60);
+        }
+    })();
+    init();
+
+    function init() {
+      css(".heart{z-index:9999;width: 10px;height: 10px;position: fixed;background: #f00;transform: rotate(45deg);-webkit-transform: rotate(45deg);-moz-transform: rotate(45deg);}.heart:after,.heart:before{content: '';width: inherit;height: inherit;background: inherit;border-radius: 50%;-webkit-border-radius: 50%;-moz-border-radius: 50%;position: absolute;}.heart:after{top: -5px;}.heart:before{left: -5px;}");
+      attachEvent();
+      gameloop();
+      addMenuEvent();
+    }
+
+    function gameloop() {
+      for (var i = 0; i < hearts.length; i++) {
+        if (hearts[i].alpha <= 0) {
+          document.body.removeChild(hearts[i].el);
+          hearts.splice(i, 1);
+          continue;
+        }
+        hearts[i].y--;
+        hearts[i].scale += 0.004;
+        hearts[i].alpha -= 0.013;
+        hearts[i].el.style.cssText = "left:" + hearts[i].x + "px;top:" + hearts[i].y + "px;opacity:" + hearts[i].alpha + ";transform:scale(" + hearts[i].scale + "," + hearts[i].scale + ") rotate(45deg);background:" + hearts[i].color;
+      }
+      requestAnimationFrame(gameloop);
+    }
+
+    /**
+     * 给logo设置点击事件
+     * 
+     * - 回到顶部
+     * - 出现爱心
+     */
+    function attachEvent() {
+      var old = typeof window.onclick === "function" && window.onclick;
+      var logo = document.getElementById("logo");
+      if (logo) {
+        logo.onclick = function(event) {
+          returnTop();
+          old && old();
+          createHeart(event);
+        }
+      }
+      
+    }
+
+    function createHeart(event) {
+      var d = document.createElement("div");
+      d.className = "heart";
+      hearts.push({
+        el: d,
+        x: event.clientX - 5,
+        y: event.clientY - 5,
+        scale: 1,
+        alpha: 1,
+        color: randomColor()
+      });
+      document.body.appendChild(d);
+    }
+
+    function css(css) {
+      var style = document.createElement("style");
+      style.type = "text/css";
+      try {
+        style.appendChild(document.createTextNode(css));
+      } catch (ex) {
+        style.styleSheet.cssText = css;
+      }
+      document.getElementsByTagName('head')[0].appendChild(style);
+    }
+
+    function randomColor() {
+      // return "rgb(" + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + "," + (~~(Math.random() * 255)) + ")";
+      return "#F44336";
+    }
+
+    function addMenuEvent() {
+      var menu = document.getElementById('menu-main-post');
+      if (menu) {
+        var toc = document.getElementById('toc');
+        if (toc) {
+          menu.onclick = function() {
+            if (toc) {
+              if (toc.style.display == 'block') {
+                toc.style.display = 'none';
+              } else {
+                toc.style.display = 'block';
+              }
+            }
+          };
+        } else {
+          menu.style.display = 'none';
+        }
+      }
+    }
+
+  })(window, document);
+</script>
+ -->
+  <!-- 
+
+
+ -->
+</body>
+
+</html>
